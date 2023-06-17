@@ -1,20 +1,25 @@
-#adapted from https://github.com/shivam5992/language-modelling/blob/master/model.py
+#adapted from https://github.com/shivam5992/language-modelling/blob/master/model.py and https://towardsdatascience.com/nlp-splitting-text-into-sentences-7bbce222ef17
 
-from keras.preprocessing.sequence import pad_sequences
+from keras_preprocessing.sequence import pad_sequences
 from keras.layers import Embedding, LSTM, Dense, Dropout
-from keras.preprocessing.text import Tokenizer
+from keras_preprocessing.text import Tokenizer
 from keras.callbacks import EarlyStopping
 from keras.models import Sequential
+from alive_progress import alive_bar
+from itertools import chain
 import keras.utils as ku 
 import numpy as np 
-import glob,os
+import glob,os,nltk
+
+nltk.download('punkt')
 
 tokenizer = Tokenizer()
 
 def dataset_preparation(data):
 
 	# basic cleanup
-	corpus = data.lower().split("\n")
+	corpus = [nltk.tokenize.word_tokenize(sentence) for sentence in nltk.sent_tokenize(data)]
+	corpus =list(chain.from_iterable(corpus))
 
 	# tokenization	
 	tokenizer.fit_on_texts(corpus)
@@ -22,6 +27,7 @@ def dataset_preparation(data):
 
 	# create input sequences using list of tokens
 	input_sequences = []
+	
 	for line in corpus:
 		token_list = tokenizer.texts_to_sequences([line])[0]
 		for i in range(1, len(token_list)):
@@ -75,7 +81,16 @@ def get_corpus_data():
         data += open(f).read()
     return data
 
-data = get_corpus_data()
-predictors, label, max_sequence_len, total_words = dataset_preparation(data)
+
+with alive_bar(title="\033[38;5;14m[INFO]\033[0m Compiling corpus...".ljust(35), stats=False, monitor=False) as bar:
+	data = get_corpus_data()
+
+with alive_bar(title="\033[38;5;14m[INFO]\033[0m Preparing dataset...".ljust(35), stats=False, monitor=False) as bar:
+	predictors, label, max_sequence_len, total_words = dataset_preparation(data)
+
+# with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating model...".ljust(30), stats=False, monitor=False) as bar:
+print("\033[38;5;14m[INFO]\033[0m Generating model...".ljust(35))
 model = create_model(predictors, label, max_sequence_len, total_words)
-print(generate_text("we naughty", 3, max_sequence_len))
+
+with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating text...".ljust(35), stats=False, monitor=False) as bar:
+	print(generate_text("we naughty", 3, max_sequence_len))
