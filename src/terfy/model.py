@@ -63,8 +63,8 @@ def generate_text(seed_text, next_words, max_sequence_len):
 	for _ in range(next_words):
 		token_list = tokenizer.texts_to_sequences([seed_text])[0]
 		token_list = pad_sequences([token_list], maxlen=max_sequence_len-1, padding='pre')
-		predicted = model.predict_classes(token_list, verbose=0)
-		
+		# predicted = model.predict_classes(token_list, verbose=0)
+		predicted = (model.predict(token_list) > 0.5).astype("int32")		
 		output_word = ""
 		for word, index in tokenizer.word_index.items():
 			if index == predicted:
@@ -81,6 +81,15 @@ def get_corpus_data():
         data += open(f).read()
     return data
 
+def save_model(model):
+	# serialize model to JSON
+	model_json = model.to_json()
+	with open("model.json", "w") as json_file:
+		json_file.write(model_json)
+	# serialize weights to HDF5
+	model.save_weights("model.h5")
+	# print("Saved model to disk")
+
 
 with alive_bar(title="\033[38;5;14m[INFO]\033[0m Compiling corpus...".ljust(35), stats=False, monitor=False) as bar:
 	data = get_corpus_data()
@@ -89,8 +98,11 @@ with alive_bar(title="\033[38;5;14m[INFO]\033[0m Preparing dataset...".ljust(35)
 	predictors, label, max_sequence_len, total_words = dataset_preparation(data)
 
 # with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating model...".ljust(30), stats=False, monitor=False) as bar:
-print("\033[38;5;14m[INFO]\033[0m Generating model...".ljust(35))
+print("\033[38;5;14m[INFO]\033[0m Training model...".ljust(35))
 model = create_model(predictors, label, max_sequence_len, total_words)
+
+with alive_bar(title="\033[38;5;14m[INFO]\033[0m Saving model...".ljust(35), stats=False, monitor=False) as bar:
+	save_model(model)
 
 with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating text...".ljust(35), stats=False, monitor=False) as bar:
 	print(generate_text("we naughty", 3, max_sequence_len))

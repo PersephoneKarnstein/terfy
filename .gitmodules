@@ -1,0 +1,3 @@
+[submodule "infowars"]
+	path = infowars
+	url = https://github.com/Fudge/infowars.git

@@ -1,2 +1,6 @@
 keras
 tensorflow
+protobuf==3.20.*
+sentencepiece
+deepmultilingualpunctuation
+alive-process
