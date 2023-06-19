@@ -22,7 +22,7 @@ def main():
     )
 
     hatesubs = ["conspiracy", "conspiracy_commons", "conservative", "JordanPeterson", "benshapiro", "stevencrowder", "globeskepticism"]
-    hotlimit = 200
+    hotlimit = 100
     with alive_bar(len(hatesubs)*hotlimit, title="\033[38;5;14m[STATUS]\033[0m Reading reddit...".ljust(35)) as bar:
         with open(path + "/training-texts/reddit.txt", "w+") as g:
             for subredditname in hatesubs:
