@@ -11,6 +11,8 @@ import keras.utils as ku
 import numpy as np 
 import glob,os,nltk
 
+global max_sequence_len
+
 nltk.download('punkt')
 
 tokenizer = Tokenizer()
@@ -35,6 +37,7 @@ def dataset_preparation(data):
 			input_sequences.append(n_gram_sequence)
 
 	# pad sequences 
+	global max_sequence_len
 	max_sequence_len = max([len(x) for x in input_sequences])
 	input_sequences = np.array(pad_sequences(input_sequences, maxlen=max_sequence_len, padding='pre'))
 
@@ -54,7 +57,7 @@ def create_model(predictors, label, max_sequence_len, total_words):
 	model.add(Dense(total_words, activation='softmax'))
 
 	model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-	earlystop = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=0, mode='auto')
+	earlystop = EarlyStopping(monitor='loss', min_delta=0, patience=5, verbose=0, mode='auto')
 	model.fit(predictors, label, epochs=100, verbose=1, callbacks=[earlystop])
 	print(model.summary())
 	return model 

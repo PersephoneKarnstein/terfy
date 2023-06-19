@@ -24,8 +24,9 @@ def main():
     hatesubs = ["conspiracy", "conspiracy_commons", "conservative", "JordanPeterson", "benshapiro", "stevencrowder", "globeskepticism"]
     hotlimit = 200
     with alive_bar(len(hatesubs)*hotlimit, title="\033[38;5;14m[STATUS]\033[0m Reading reddit...".ljust(35)) as bar:
-        for subredditname in hatesubs:
-            with open(path + "/training-texts/reddit.txt", "w+") as g:
+        with open(path + "/training-texts/reddit.txt", "w+") as g:
+            for subredditname in hatesubs:
+                print(f"\033[1;38;5;15m[INFO]\033[0m Now scraping r/{subredditname}...")
                 subreddit = reddit.subreddit(subredditname)
                 for submission in subreddit.hot(limit=hotlimit):
                     g.write(submission.title)
