@@ -90,19 +90,22 @@ def save_model(model):
 	model.save_weights("model.h5")
 	# print("Saved model to disk")
 
+def main():
+	with alive_bar(title="\033[38;5;14m[INFO]\033[0m Compiling corpus...".ljust(35), stats=False, monitor=False) as bar:
+		data = get_corpus_data()
 
-with alive_bar(title="\033[38;5;14m[INFO]\033[0m Compiling corpus...".ljust(35), stats=False, monitor=False) as bar:
-	data = get_corpus_data()
+	with alive_bar(title="\033[38;5;14m[INFO]\033[0m Preparing dataset...".ljust(35), stats=False, monitor=False) as bar:
+		predictors, label, max_sequence_len, total_words = dataset_preparation(data)
 
-with alive_bar(title="\033[38;5;14m[INFO]\033[0m Preparing dataset...".ljust(35), stats=False, monitor=False) as bar:
-	predictors, label, max_sequence_len, total_words = dataset_preparation(data)
+	# with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating model...".ljust(30), stats=False, monitor=False) as bar:
+	print("\033[38;5;14m[INFO]\033[0m Training model...".ljust(35))
+	model = create_model(predictors, label, max_sequence_len, total_words)
 
-# with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating model...".ljust(30), stats=False, monitor=False) as bar:
-print("\033[38;5;14m[INFO]\033[0m Training model...".ljust(35))
-model = create_model(predictors, label, max_sequence_len, total_words)
+	with alive_bar(title="\033[38;5;14m[INFO]\033[0m Saving model...".ljust(35), stats=False, monitor=False) as bar:
+		save_model(model)
 
-with alive_bar(title="\033[38;5;14m[INFO]\033[0m Saving model...".ljust(35), stats=False, monitor=False) as bar:
-	save_model(model)
+	with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating text...".ljust(35), stats=False, monitor=False) as bar:
+		print(generate_text("we naughty", 3, max_sequence_len))
 
-with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating text...".ljust(35), stats=False, monitor=False) as bar:
-	print(generate_text("we naughty", 3, max_sequence_len))
+if __name__ == '__main__':
+	main()

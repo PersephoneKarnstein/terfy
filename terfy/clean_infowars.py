@@ -2,14 +2,16 @@ from deepmultilingualpunctuation import PunctuationModel
 from alive_progress import alive_bar
 import os,re,glob
 
-min_count = 20 #they're fairly long so set it so he has to talk about it a lot for it to count
-# if min_count is set to 10 you get a 10.6 MB file; at 20 you get a 2.5 MB file
-
-model = PunctuationModel()
 
 def clean_text():
+
+    min_count = 20 #they're fairly long so set it so he has to talk about it a lot for it to count
+    # if min_count is set to 10 you get a 10.6 MB file; at 20 you get a 2.5 MB file
+
+    model = PunctuationModel()
+
     path = os.getcwd()
-    files = glob.glob(path + '/../infowars/*.txt')
+    files = glob.glob(path + '/infowars/*.txt')
     path += "/training-texts/alexjones.txt"
     if os.path.exists(path):
         os.remove(path)
@@ -54,4 +56,5 @@ def clean_text():
     print(f"\033[38;5;14m[FINISHED]\033[0m All shows were read and transcribed.")
     
 
-data = clean_text()
+if __name__ == '__main__':
+    clean_text()

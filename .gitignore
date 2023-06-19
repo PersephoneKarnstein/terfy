@@ -1,4 +1,6 @@
-src/pdf-texts/
+pdf-texts/
+secrets.json
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
