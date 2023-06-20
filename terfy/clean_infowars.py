@@ -1,13 +1,33 @@
+import os,re,glob,logging,warnings
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+warnings.filterwarnings("ignore", category=UserWarning)
+
 from deepmultilingualpunctuation import PunctuationModel
-from alive_progress import alive_bar
-import os,re,glob
+from rich.progress import Progress
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.panel import Panel
+
+console = Console()
+
+FORMAT = "%(message)s"
+logging.basicConfig(
+    level="NOTSET", format=FORMAT, datefmt="[%X]", handlers=[RichHandler(rich_tracebacks=True, tracebacks_suppress=[PunctuationModel])]
+)
+
+# logging.getLogger(deepmultilingualpunctuation.__name__).setLevel(logging.CRITICAL)
+
+log = logging.getLogger("rich")
+log.setLevel(logging.INFO)
+
 
 
 def clean_text():
 
     min_count = 20 #they're fairly long so set it so he has to talk about it a lot for it to count
     # if min_count is set to 10 you get a 10.6 MB file; at 20 you get a 2.5 MB file
-
+    console.print(Panel("Transcribing Infowars".rjust(int(os.get_terminal_size().columns/2))))
     model = PunctuationModel()
 
     path = os.getcwd()
@@ -19,10 +39,11 @@ def clean_text():
     trans = re.compile(r'(trans ((man)|(woman)|(people)|(ideology)|(men)|(women)|(child)|(children)))|(transgender)|(transsexual)|(tranny)|(transvestite)')
     i,j=0,0
     try:
-        with alive_bar(len(files)+1, title="\033[38;5;14m[STATUS]\033[0m Reading transcripts...".ljust(35)) as bar:
-            bar()
+        with Progress() as progress:
+            task1 = progress.add_task("[sky_blue1]Reading transcripts...", total=len(files))
             with open(path, "w+") as g:
                 for f in files:
+                    # progress.console.print(" ")
                     result = ""
                     for line in open(f).readlines():
                         result += " "+timestamp.sub('', line).strip() #remove the timestamps
@@ -31,12 +52,14 @@ def clean_text():
                     if mentioned_trans > min_count:
                         date = f.split("/")[-1].split("_")[0]
                         date = date[:4]+"-"+date[4:6]+"-"+date[-2:]
-                        print(f"\033[1;38;5;15m[INFO]\033[0m Mentioned trans people {mentioned_trans} times on {date}. Saving.")
+                        log.info(f"Mentioned trans people {mentioned_trans} times on {date}. Saving.")
                         try:
+                            # progress.console.print("Punctuating...")
                             result = model.restore_punctuation(result) #re-insert punctuation
+                            # progress.console.print(" ")
                         except Exception as e:
                             halflen = int(len(result)/2)
-                            print(f"\033[38;5;225m[WARNING]\033[0m Transcript too long. Splitting...")
+                            log.warn("Transcript too long. Splitting...")
                             model = PunctuationModel()
                             a,b = result[:halflen],result[halflen:]
                             try:
@@ -44,17 +67,16 @@ def clean_text():
                                 foo += model.restore_punctuation(b)
                                 result = foo
                             except Exception:
-                                print(f"\033[38;5;225m[WARNING]\033[0m Splitting failed. Skipping.")
+                                log.warn("Splitting failed. Skipping.")
                                 continue
                         g.write(result)
                         j+=1
                     i+=1
-                    bar()
+                    progress.update(task1, advance=1)
     except KeyboardInterrupt:
-        print(f"\033[38;5;225m[CANCELLED]\033[0m {i} shows were read; {j} transcribed.")
+        console.print(f"[pink1]Transcription cancelled. {i} shows were read; {j} transcribed.")
         return
-    print(f"\033[38;5;14m[FINISHED]\033[0m All shows were read and transcribed.")
-    
+    console.print("[pink1]Transcription Complete.")
 
 if __name__ == '__main__':
     clean_text()

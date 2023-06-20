@@ -1,21 +1,25 @@
 #adapted from https://github.com/shivam5992/language-modelling/blob/master/model.py and https://towardsdatascience.com/nlp-splitting-text-into-sentences-7bbce222ef17
 
+from alive_progress import alive_bar
+from itertools import chain
+import numpy as np 
+import glob,os,nltk
+from contextlib import redirect_stdout, redirect_stderr
+import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 from keras_preprocessing.sequence import pad_sequences
 from keras.layers import Embedding, LSTM, Dense, Dropout
 from keras_preprocessing.text import Tokenizer
 from keras.callbacks import EarlyStopping
-from keras.models import Sequential
-from alive_progress import alive_bar
-from itertools import chain
+from keras.models import Sequential, model_from_json
 import keras.utils as ku 
-import numpy as np 
-import glob,os,nltk
+
+nltk.download('punkt', quiet=True)
+tokenizer = Tokenizer()
 
 global max_sequence_len
-
-nltk.download('punkt')
-
-tokenizer = Tokenizer()
 
 def dataset_preparation(data):
 
@@ -62,7 +66,7 @@ def create_model(predictors, label, max_sequence_len, total_words):
 	print(model.summary())
 	return model 
 
-def generate_text(seed_text, next_words, max_sequence_len):
+def generate_text(seed_text, next_words, max_sequence_len, model):
 	for _ in range(next_words):
 		token_list = tokenizer.texts_to_sequences([seed_text])[0]
 		token_list = pad_sequences([token_list], maxlen=max_sequence_len-1, padding='pre')
@@ -87,11 +91,24 @@ def get_corpus_data():
 def save_model(model):
 	# serialize model to JSON
 	model_json = model.to_json()
-	with open("model.json", "w") as json_file:
+	with open("models/model.json", "w") as json_file:
 		json_file.write(model_json)
 	# serialize weights to HDF5
 	model.save_weights("model.h5")
 	# print("Saved model to disk")
+
+def load_model(filename="models"):
+	path = os.getcwd()
+	with redirect_stdout(open(os.devnull, 'w')):
+		json_file = open(path+'/'+filename+'/model.json', 'r')
+		loaded_model_json = json_file.read()
+		json_file.close()
+		loaded_model = model_from_json(loaded_model_json)
+		# load weights into new model
+		loaded_model.load_weights(path+'/'+filename+"/model.h5")
+	print("Loaded model from disk")
+	return loaded_model
+
 
 def main():
 	with alive_bar(title="\033[38;5;14m[INFO]\033[0m Compiling corpus...".ljust(35), stats=False, monitor=False) as bar:
@@ -108,7 +125,7 @@ def main():
 		save_model(model)
 
 	with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating text...".ljust(35), stats=False, monitor=False) as bar:
-		print(generate_text("we naughty", 3, max_sequence_len))
+		print(generate_text("we naughty", 3, max_sequence_len, model))
 
 if __name__ == '__main__':
 	main()
