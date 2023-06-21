@@ -1,9 +1,12 @@
 #adapted from https://github.com/shivam5992/language-modelling/blob/master/model.py and https://towardsdatascience.com/nlp-splitting-text-into-sentences-7bbce222ef17
 
-from alive_progress import alive_bar
+# from alive_progress import alive_bar
+from rich.console import Console
+from io import StringIO
+
 from itertools import chain
 import numpy as np 
-import glob,os,nltk
+import glob,os,nltk,sys
 from contextlib import redirect_stdout, redirect_stderr
 import os
 
@@ -18,6 +21,8 @@ import keras.utils as ku
 
 nltk.download('punkt', quiet=True)
 tokenizer = Tokenizer()
+
+console = Console()
 
 global max_sequence_len
 
@@ -111,20 +116,19 @@ def load_model(filename="models"):
 
 
 def main():
-	with alive_bar(title="\033[38;5;14m[INFO]\033[0m Compiling corpus...".ljust(35), stats=False, monitor=False) as bar:
+	with console.status("[sky_blue1]Compiling corpus...", spinner="bouncingBar", spinner_style="pink1") as status:
 		data = get_corpus_data()
 
-	with alive_bar(title="\033[38;5;14m[INFO]\033[0m Preparing dataset...".ljust(35), stats=False, monitor=False) as bar:
+	with console.status("[sky_blue1]Preparing dataset...", spinner="bouncingBar", spinner_style="pink1") as status:
 		predictors, label, max_sequence_len, total_words = dataset_preparation(data)
 
-	# with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating model...".ljust(30), stats=False, monitor=False) as bar:
-	print("\033[38;5;14m[INFO]\033[0m Training model...".ljust(35))
+	console.print("[sky_blue1]Training model...\n[italic](this may take a while)")
 	model = create_model(predictors, label, max_sequence_len, total_words)
 
-	with alive_bar(title="\033[38;5;14m[INFO]\033[0m Saving model...".ljust(35), stats=False, monitor=False) as bar:
+	with console.status("[sky_blue1]Saving model...", spinner="bouncingBar", spinner_style="pink1") as status:
 		save_model(model)
 
-	with alive_bar(title="\033[38;5;14m[INFO]\033[0m Generating text...".ljust(35), stats=False, monitor=False) as bar:
+	with console.status("[sky_blue1]Generating text...", spinner="bouncingBar", spinner_style="pink1") as status:
 		print(generate_text("we naughty", 3, max_sequence_len, model))
 
 if __name__ == '__main__':

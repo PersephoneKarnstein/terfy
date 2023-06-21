@@ -16,7 +16,8 @@ logging.basicConfig(
     level="NOTSET", format=FORMAT, datefmt="[%X]", handlers=[RichHandler(rich_tracebacks=True, tracebacks_suppress=[PunctuationModel])]
 )
 
-# logging.getLogger(deepmultilingualpunctuation.__name__).setLevel(logging.CRITICAL)
+for a in logging.Logger.manager.loggerDict.keys():logging.getLogger(a).disabled = True #HIT WITH BIG STICK TO SHUT THEM UP
+logging.getLogger("rich").disabled = False
 
 log = logging.getLogger("rich")
 log.setLevel(logging.INFO)
