@@ -5,9 +5,9 @@ from rich.console import Console
 
 from itertools import chain
 import numpy as np 
-import glob,os,nltk,sys
+import glob,os,nltk,sys,logging
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '7'
 
 from keras_preprocessing.sequence import pad_sequences
 from keras.layers import Embedding, LSTM, Dense, Dropout
@@ -15,6 +15,8 @@ from keras_preprocessing.text import Tokenizer
 from keras.callbacks import EarlyStopping
 from keras.models import Sequential, model_from_json
 import keras.utils as ku 
+
+from contextlib import redirect_stdout
 
 nltk.download('punkt', quiet=True)
 tokenizer = Tokenizer()
@@ -73,11 +75,14 @@ def generate_text(seed_text, next_words, max_sequence_len, model):
 		token_list = tokenizer.texts_to_sequences([seed_text])[0]
 		token_list = pad_sequences([token_list], maxlen=max_sequence_len-1, padding='pre')
 		# predicted = model.predict_classes(token_list, verbose=0)
-		predicted = (model.predict(token_list) > 0.5).astype("int32")		
+		with redirect_stdout(open(os.devnull, 'w')):
+			predicted = (model.predict(token_list) > 0.5).astype("int32")		
 		output_word = ""
 		for word, index in tokenizer.word_index.items():
-			console.print("\n\n",word,index)
-			if index == predicted:
+			log.info("\n\n",word,index)
+			try: ispredicted = bool(index == predicted)
+			except ValueError: ispredicted = bool(index.any() == predicted)
+			if ispredicted:
 				output_word = word
 				break
 		seed_text += " " + output_word
@@ -89,7 +94,7 @@ def get_corpus_data():
 	data = ""
 	files = [files[1]] #delete this line, this is just for testing
 	for f in files:
-		data += open(f).read()
+		data += open(f).read().decode(encoding='utf-8')
 	return data
 
 def save_model(model,filepath="models"):
@@ -103,29 +108,41 @@ def save_model(model,filepath="models"):
 
 def load_model(filepath="models"):
 	path = os.getcwd()
-	with redirect_stdout(open(os.devnull, 'w')):
-		json_file = open(path+'/'+filepath+'/model.json', 'r')
-		loaded_model_json = json_file.read()
-		json_file.close()
-		loaded_model = model_from_json(loaded_model_json)
-		# load weights into new model
-		loaded_model.load_weights(path+'/'+filepath+"/model.h5")
+	# with redirect_stdout(open(os.devnull, 'w')):
+	json_file = open(path+'/'+filepath+'/model.json', 'r')
+	loaded_model_json = json_file.read()
+	json_file.close()
+	loaded_model = model_from_json(loaded_model_json)
+	# load weights into new model
+	loaded_model.load_weights(path+'/'+filepath+"/model.h5")
+	loaded_model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
 	print("Loaded model from disk")
 	return loaded_model
 
 
 def main():
-	with console.status("[sky_blue1]Compiling corpus...", spinner="bouncingBar", spinner_style="pink1") as status:
-		data = get_corpus_data()
+	path = os.getcwd()
+	filepath = "models"
+	jsonpath = path+'/'+filepath+'/model.json'
+	h5path = path+'/'+filepath+'/model.h5'
 
-	with console.status("[sky_blue1]Preparing dataset...", spinner="bouncingBar", spinner_style="pink1") as status:
-		predictors, label, max_sequence_len, total_words = dataset_preparation(data)
+	if not (os.path.isfile(h5path) and os.path.isfile(jsonpath)):
+		with console.status("[sky_blue1]Compiling corpus...", spinner="bouncingBar", spinner_style="pink1") as status:
+			data = get_corpus_data()
 
-	console.print("[sky_blue1]Training model...\n[italic](this may take a while)")
-	model = create_model(predictors, label, max_sequence_len, total_words)
+		with console.status("[sky_blue1]Preparing dataset...", spinner="bouncingBar", spinner_style="pink1") as status:
+			predictors, label, max_sequence_len, total_words = dataset_preparation(data)
 
-	with console.status("[sky_blue1]Saving model...", spinner="bouncingBar", spinner_style="pink1") as status:
-		save_model(model)
+		console.print("[sky_blue1]Training model...\n[italic](this may take a while)")
+		model = create_model(predictors, label, max_sequence_len, total_words)
+		console.print(f"max_sequence_len = {max_sequence_len}")
+
+		with console.status("[sky_blue1]Saving model...", spinner="bouncingBar", spinner_style="pink1") as status:
+			save_model(model)
+	else: #if the model files exist
+		with console.status("[sky_blue1]Loading model...", spinner="bouncingBar", spinner_style="pink1") as status:
+			model = load_model()
+			max_sequence_len = 29
 
 	with console.status("[sky_blue1]Generating text...", spinner="bouncingBar", spinner_style="pink1") as status:
 		print(generate_text("the transgender", 3, max_sequence_len, model))

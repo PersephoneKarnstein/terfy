@@ -61,7 +61,7 @@ def clean_text():
                             # progress.console.print(" ")
                         except Exception as e:
                             halflen = int(len(result)/2)
-                            log.warn("Transcript too long. Splitting...")
+                            log.warning("Transcript too long. Splitting...")
                             model = PunctuationModel()
                             a,b = result[:halflen],result[halflen:]
                             try:
@@ -69,7 +69,7 @@ def clean_text():
                                 foo += model.restore_punctuation(b)
                                 result = foo
                             except Exception:
-                                log.warn("Splitting failed. Skipping.")
+                                log.warning("Splitting failed. Skipping.")
                                 continue
                         g.write(result)
                         j+=1
