@@ -1,151 +1,211 @@
-#adapted from https://github.com/shivam5992/language-modelling/blob/master/model.py and https://towardsdatascience.com/nlp-splitting-text-into-sentences-7bbce222ef17
+#https://www.tensorflow.org/text/tutorials/text_generation
 
-# from alive_progress import alive_bar
-from rich.console import Console
+import tensorflow as tf
 
-from itertools import chain
-import numpy as np 
-import glob,os,nltk,sys,logging
+import numpy as np
+import os, glob
+import time
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '7'
-
-from keras_preprocessing.sequence import pad_sequences
-from keras.layers import Embedding, LSTM, Dense, Dropout
-from keras_preprocessing.text import Tokenizer
-from keras.callbacks import EarlyStopping
-from keras.models import Sequential, model_from_json
-import keras.utils as ku 
-
-from contextlib import redirect_stdout
-
-nltk.download('punkt', quiet=True)
-tokenizer = Tokenizer()
-
-console = Console()
-
-global max_sequence_len
-
-def dataset_preparation(data):
-
-	# basic cleanup
-	corpus = [nltk.tokenize.word_tokenize(sentence) for sentence in nltk.sent_tokenize(data)]
-	corpus =list(chain.from_iterable(corpus))
-
-	# tokenization	
-	tokenizer.fit_on_texts(corpus)
-	total_words = len(tokenizer.word_index) + 1
-
-	# create input sequences using list of tokens
-	input_sequences = []
-	
-	for line in corpus:
-		token_list = tokenizer.texts_to_sequences([line])[0]
-		for i in range(1, len(token_list)):
-			n_gram_sequence = token_list[:i+1]
-			input_sequences.append(n_gram_sequence)
-
-	# pad sequences 
-	global max_sequence_len
-	max_sequence_len = max([len(x) for x in input_sequences])
-	input_sequences = np.array(pad_sequences(input_sequences, maxlen=max_sequence_len, padding='pre'))
-
-	# create predictors and label
-	predictors, label = input_sequences[:,:-1],input_sequences[:,-1]
-	label = ku.to_categorical(label, num_classes=total_words)
-
-	return predictors, label, max_sequence_len, total_words
-
-def create_model(predictors, label, max_sequence_len, total_words):
-	
-	model = Sequential()
-	model.add(Embedding(total_words, 10, input_length=max_sequence_len-1))
-	model.add(LSTM(150, return_sequences = True))
-	# model.add(Dropout(0.2))
-	model.add(LSTM(100))
-	model.add(Dense(total_words, activation='softmax'))
-
-	model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-	earlystop = EarlyStopping(monitor='loss', min_delta=0, patience=5, verbose=0, mode='auto')
-	model.fit(predictors, label, epochs=100, verbose=1, callbacks=[earlystop])
-	print(model.summary())
-	return model 
-
-def generate_text(seed_text, next_words, max_sequence_len, model):
-	for _ in range(next_words):
-		token_list = tokenizer.texts_to_sequences([seed_text])[0]
-		token_list = pad_sequences([token_list], maxlen=max_sequence_len-1, padding='pre')
-		# predicted = model.predict_classes(token_list, verbose=0)
-		with redirect_stdout(open(os.devnull, 'w')):
-			predicted = (model.predict(token_list) > 0.5).astype("int32")		
-		output_word = ""
-		for word, index in tokenizer.word_index.items():
-			log.info("\n\n",word,index)
-			try: ispredicted = bool(index == predicted)
-			except ValueError: ispredicted = bool(index.any() == predicted)
-			if ispredicted:
-				output_word = word
-				break
-		seed_text += " " + output_word
-	return seed_text
 
 def get_corpus_data():
 	path = os.getcwd()
 	files = glob.glob(path + '/training-texts/*.txt')
 	data = ""
-	files = [files[1]] #delete this line, this is just for testing
+	# files = [files[1]] #delete this line, this is just for testing
 	for f in files:
-		data += open(f).read().decode(encoding='utf-8')
+		data += open(f).read()
 	return data
 
-def save_model(model,filepath="models"):
-	# serialize model to JSON
-	model_json = model.to_json()
-	with open(path+'/'+filepath+'/model.json', "w") as json_file:
-		json_file.write(model_json)
-	# serialize weights to HDF5
-	model.save_weights(path+'/'+filepath+"/model.h5")
-	# print("Saved model to disk")
+text = get_corpus_data()
+# length of text is the number of characters in it
+print(f'Length of text: {len(text)} characters')
 
-def load_model(filepath="models"):
-	path = os.getcwd()
-	# with redirect_stdout(open(os.devnull, 'w')):
-	json_file = open(path+'/'+filepath+'/model.json', 'r')
-	loaded_model_json = json_file.read()
-	json_file.close()
-	loaded_model = model_from_json(loaded_model_json)
-	# load weights into new model
-	loaded_model.load_weights(path+'/'+filepath+"/model.h5")
-	loaded_model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-	print("Loaded model from disk")
-	return loaded_model
+# Take a look at the first 250 characters in text
+# print(text[:250])
 
+# The unique characters in the file
+vocab = sorted(set(text))
+print(f'{len(vocab)} unique characters')
 
-def main():
-	path = os.getcwd()
-	filepath = "models"
-	jsonpath = path+'/'+filepath+'/model.json'
-	h5path = path+'/'+filepath+'/model.h5'
+example_texts = ['abcdefg', 'xyz']
 
-	if not (os.path.isfile(h5path) and os.path.isfile(jsonpath)):
-		with console.status("[sky_blue1]Compiling corpus...", spinner="bouncingBar", spinner_style="pink1") as status:
-			data = get_corpus_data()
+chars = tf.strings.unicode_split(example_texts, input_encoding='UTF-8')
+# print(chars)
 
-		with console.status("[sky_blue1]Preparing dataset...", spinner="bouncingBar", spinner_style="pink1") as status:
-			predictors, label, max_sequence_len, total_words = dataset_preparation(data)
+ids_from_chars = tf.keras.layers.StringLookup(
+    vocabulary=list(vocab), mask_token=None
+    )
 
-		console.print("[sky_blue1]Training model...\n[italic](this may take a while)")
-		model = create_model(predictors, label, max_sequence_len, total_words)
-		console.print(f"max_sequence_len = {max_sequence_len}")
+ids = ids_from_chars(chars)
+# print(ids)
 
-		with console.status("[sky_blue1]Saving model...", spinner="bouncingBar", spinner_style="pink1") as status:
-			save_model(model)
-	else: #if the model files exist
-		with console.status("[sky_blue1]Loading model...", spinner="bouncingBar", spinner_style="pink1") as status:
-			model = load_model()
-			max_sequence_len = 29
+chars_from_ids = tf.keras.layers.StringLookup(
+    vocabulary=ids_from_chars.get_vocabulary(), invert=True, mask_token=None)
 
-	with console.status("[sky_blue1]Generating text...", spinner="bouncingBar", spinner_style="pink1") as status:
-		print(generate_text("the transgender", 3, max_sequence_len, model))
+chars = chars_from_ids(ids)
 
-if __name__ == '__main__':
-	main()
+tf.strings.reduce_join(chars, axis=-1).numpy()
+
+def text_from_ids(ids):
+  return tf.strings.reduce_join(chars_from_ids(ids), axis=-1)
+
+all_ids = ids_from_chars(tf.strings.unicode_split(text, 'UTF-8'))
+# all_ids
+
+ids_dataset = tf.data.Dataset.from_tensor_slices(all_ids)
+
+seq_length = 100
+sequences = ids_dataset.batch(seq_length+1, drop_remainder=True)
+
+def split_input_target(sequence):
+    input_text = sequence[:-1]
+    target_text = sequence[1:]
+    return input_text, target_text
+
+dataset = sequences.map(split_input_target)
+
+# Batch size
+BATCH_SIZE = 64
+
+# Buffer size to shuffle the dataset
+# (TF data is designed to work with possibly infinite sequences,
+# so it doesn't attempt to shuffle the entire sequence in memory. Instead,
+# it maintains a buffer in which it shuffles elements).
+BUFFER_SIZE = 10000
+
+dataset = (
+    dataset
+    .shuffle(BUFFER_SIZE)
+    .batch(BATCH_SIZE, drop_remainder=True)
+    .prefetch(tf.data.experimental.AUTOTUNE))
+
+# Length of the vocabulary in StringLookup Layer
+vocab_size = len(ids_from_chars.get_vocabulary())
+
+# The embedding dimension
+embedding_dim = 256
+
+# Number of RNN units
+rnn_units = 1024
+
+class MyModel(tf.keras.Model):
+  def __init__(self, vocab_size, embedding_dim, rnn_units):
+    super().__init__(self)
+    self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
+    self.gru = tf.keras.layers.GRU(rnn_units,
+                                   return_sequences=True,
+                                   return_state=True)
+    self.dense = tf.keras.layers.Dense(vocab_size)
+
+  def call(self, inputs, states=None, return_state=False, training=False):
+    x = inputs
+    x = self.embedding(x, training=training)
+    if states is None:
+      states = self.gru.get_initial_state(x)
+    x, states = self.gru(x, initial_state=states, training=training)
+    x = self.dense(x, training=training)
+
+    if return_state:
+      return x, states
+    else:
+      return x
+
+model = MyModel(
+    vocab_size=vocab_size,
+    embedding_dim=embedding_dim,
+    rnn_units=rnn_units)
+
+for input_example_batch, target_example_batch in dataset.take(1):
+    example_batch_predictions = model(input_example_batch)
+    print(example_batch_predictions.shape, "# (batch_size, sequence_length, vocab_size)")
+
+print(model.summary())
+
+sampled_indices = tf.random.categorical(example_batch_predictions[0], num_samples=1)
+sampled_indices = tf.squeeze(sampled_indices, axis=-1).numpy()
+
+loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+example_batch_mean_loss = loss(target_example_batch, example_batch_predictions)
+print("Prediction shape: ", example_batch_predictions.shape, " # (batch_size, sequence_length, vocab_size)")
+print("Mean loss:        ", example_batch_mean_loss)
+
+tf.exp(example_batch_mean_loss).numpy()
+model.compile(optimizer='adam', loss=loss)
+
+# Directory where the checkpoints will be saved
+checkpoint_dir = './models/training_checkpoints'
+# Name of the checkpoint files
+checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
+
+checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    filepath=checkpoint_prefix,
+    save_weights_only=True)
+
+EPOCHS = 20
+
+history = model.fit(dataset, epochs=EPOCHS, callbacks=[checkpoint_callback])
+
+class OneStep(tf.keras.Model):
+  def __init__(self, model, chars_from_ids, ids_from_chars, temperature=1.0):
+    super().__init__()
+    self.temperature = temperature
+    self.model = model
+    self.chars_from_ids = chars_from_ids
+    self.ids_from_chars = ids_from_chars
+
+    # Create a mask to prevent "[UNK]" from being generated.
+    skip_ids = self.ids_from_chars(['[UNK]'])[:, None]
+    sparse_mask = tf.SparseTensor(
+        # Put a -inf at each bad index.
+        values=[-float('inf')]*len(skip_ids),
+        indices=skip_ids,
+        # Match the shape to the vocabulary
+        dense_shape=[len(ids_from_chars.get_vocabulary())])
+    self.prediction_mask = tf.sparse.to_dense(sparse_mask)
+
+  @tf.function
+  def generate_one_step(self, inputs, states=None):
+    # Convert strings to token IDs.
+    input_chars = tf.strings.unicode_split(inputs, 'UTF-8')
+    input_ids = self.ids_from_chars(input_chars).to_tensor()
+
+    # Run the model.
+    # predicted_logits.shape is [batch, char, next_char_logits]
+    predicted_logits, states = self.model(inputs=input_ids, states=states,
+                                          return_state=True)
+    # Only use the last prediction.
+    predicted_logits = predicted_logits[:, -1, :]
+    predicted_logits = predicted_logits/self.temperature
+    # Apply the prediction mask: prevent "[UNK]" from being generated.
+    predicted_logits = predicted_logits + self.prediction_mask
+
+    # Sample the output logits to generate token IDs.
+    predicted_ids = tf.random.categorical(predicted_logits, num_samples=1)
+    predicted_ids = tf.squeeze(predicted_ids, axis=-1)
+
+    # Convert from token ids to characters
+    predicted_chars = self.chars_from_ids(predicted_ids)
+
+    # Return the characters and model state.
+    return predicted_chars, states
+
+one_step_model = OneStep(model, chars_from_ids, ids_from_chars)
+
+start = time.time()
+states = None
+next_char = tf.constant(['the transgender', 'transgender', 'trans', 'I think that trans', 'why', 'I am', 'you are'])
+result = [next_char]
+
+for n in range(1000):
+  next_char, states = one_step_model.generate_one_step(next_char, states=states)
+  result.append(next_char)
+
+result = tf.strings.join(result)
+end = time.time()
+print(result, '\n\n' + '_'*80)
+print('\nRun time:', end - start)
+
+tf.saved_model.save(one_step_model, 'one_step')
+# one_step_reloaded = tf.saved_model.load('one_step')
