@@ -8,6 +8,7 @@ from rich.progress import Progress
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
+from datetime import date
 
 console = Console()
 
@@ -51,9 +52,9 @@ def clean_text():
                     #check if the show talks about trans people; only punctuate if it does.
                     mentioned_trans = len(re.findall(trans, result))
                     if mentioned_trans > min_count:
-                        date = f.split("/")[-1].split("_")[0]
-                        date = date[:4]+"-"+date[4:6]+"-"+date[-2:]
-                        log.info(f"Mentioned trans people {mentioned_trans} times on {date}. Saving.")
+                        d = f.split("/")[-1].split("_")[0]
+                        d = date(int(d[:4]),int(d[4:6]),int(d[-2:])).strftime("%d %b, %Y")
+                        log.info(f"Mentioned trans people [bold sky_blue1]{mentioned_trans}[/bold sky_blue1] times on [bold pink1]{d}[/bold pink1]. Saving.", extra={"markup": True, "highlighter":None})
                         try:
                             # progress.console.print("Punctuating...")
                             result = model.restore_punctuation(result) #re-insert punctuation

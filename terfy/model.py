@@ -2,13 +2,10 @@
 
 # from alive_progress import alive_bar
 from rich.console import Console
-from io import StringIO
 
 from itertools import chain
 import numpy as np 
 import glob,os,nltk,sys
-from contextlib import redirect_stdout, redirect_stderr
-import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -79,6 +76,7 @@ def generate_text(seed_text, next_words, max_sequence_len, model):
 		predicted = (model.predict(token_list) > 0.5).astype("int32")		
 		output_word = ""
 		for word, index in tokenizer.word_index.items():
+			console.print("\n\n",word,index)
 			if index == predicted:
 				output_word = word
 				break
@@ -86,12 +84,13 @@ def generate_text(seed_text, next_words, max_sequence_len, model):
 	return seed_text
 
 def get_corpus_data():
-    path = os.getcwd()
-    files = glob.glob(path + '/training-texts/*.txt')
-    data = ""
-    for f in files:
-        data += open(f).read()
-    return data
+	path = os.getcwd()
+	files = glob.glob(path + '/training-texts/*.txt')
+	data = ""
+	files = [files[1]] #delete this line, this is just for testing
+	for f in files:
+		data += open(f).read()
+	return data
 
 def save_model(model):
 	# serialize model to JSON
@@ -129,7 +128,7 @@ def main():
 		save_model(model)
 
 	with console.status("[sky_blue1]Generating text...", spinner="bouncingBar", spinner_style="pink1") as status:
-		print(generate_text("we naughty", 3, max_sequence_len, model))
+		print(generate_text("the transgender", 3, max_sequence_len, model))
 
 if __name__ == '__main__':
 	main()
