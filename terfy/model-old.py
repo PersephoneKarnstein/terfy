@@ -108,30 +108,32 @@ def create_model(sentences, x, y, maxlen, total_words, chars, char_indices):
 		print('Epoch', epoch)
 		# Fit the model for 1 epoch on the available training data
 		model.fit(x, y,
-              batch_size=128,
-              epochs=1, 
-			  verbose=1,
-			  callbacks=[earlystop])
+			batch_size=256,
+			epochs=1, 
+			verbose=1,
+			callbacks=[earlystop])
 
-		# Select a text seed at random
-		start_index = random.randint(0, len(data) - max_sequence_len - 1)
-		generated_text = data[start_index: start_index + max_sequence_len]
-		seed_text = generated_text.strip().replace("\n", " ")
-		# print('--- Generating with seed: "' + generated_text + '"')
-		
-		tabletitle = f"Epoch {epoch}\nSeed: {generated_text}"
-		table = Table(title=tabletitle, show_lines=True)
-		table.add_column("Temperature", justify="right", style="pink1", no_wrap=True)
-		table.add_column("Text", justify="left", style="plum2")
+		#check how it's doing
+		if epoch%10==0:
+			# Select a text seed at random
+			start_index = random.randint(0, len(data) - max_sequence_len - 1)
+			generated_text = data[start_index: start_index + max_sequence_len]
+			seed_text = generated_text.strip().replace("\n", " ")
+			# print('--- Generating with seed: "' + generated_text + '"')
+			
+			tabletitle = f"Epoch {epoch}\nSeed: {generated_text}"
+			table = Table(title=tabletitle, show_lines=True)
+			table.add_column("Temperature", justify="right", style="pink1", no_wrap=True)
+			table.add_column("Text", justify="left", style="plum2")
 
-		for temperature in [0.2, 0.5, 1.0]:
-			predictions = generate_text(model, seed_text, max_sequence_len, chars, char_indices, temp=temperature, seq_length=200)
-			table.add_row(str(temperature), predictions)
-		
-		console.print(table)
+			for temperature in [0.2, 0.5, 1.0]:
+				predictions = generate_text(model, seed_text, max_sequence_len, chars, char_indices, temp=temperature, seq_length=200)
+				table.add_row(str(temperature), predictions)
+			
+			console.print(table)
 
-		save_model(model,path)
-		print(model.summary())
+		save_model(model,os.getcwd())
+		# print(model.summary())
 	return model 
 
 def generate_text(model, seed_text, max_sequence_len, chars, char_indices, temp=0.5, seq_length=400):
@@ -157,7 +159,7 @@ def get_corpus_data():
 	path = os.getcwd()
 	files = glob.glob(path + '/training-texts/*.txt')
 	data = ""
-	# files = [files[1]] #delete this line, this is just for testing
+	files = files[:4] #delete this line, this is just for testing
 	for f in files:
 		data += open(f).read()
 	return data
