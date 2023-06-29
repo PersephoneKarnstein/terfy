@@ -1,11 +1,11 @@
-#adapted from https://github.com/shivam5992/language-modelling/blob/master/model.py and https://towardsdatascience.com/nlp-splitting-text-into-sentences-7bbce222ef17
+#adapted from https://github.com/shivam5992/language-modelling/blob/master/model.py, https://towardsdatascience.com/nlp-splitting-text-into-sentences-7bbce222ef17, and https://github.com/fchollet/deep-learning-with-python-notebooks/blob/master/first_edition/8.1-text-generation-with-lstm.ipynb
 
 # from alive_progress import alive_bar
 from rich.console import Console
 
 from itertools import chain
 import numpy as np 
-import glob,os,nltk,sys,logging
+import glob,os,nltk,sys,logging,random
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '7'
 
@@ -13,6 +13,7 @@ from keras_preprocessing.sequence import pad_sequences
 from keras.layers import Embedding, LSTM, Dense, Dropout
 from keras_preprocessing.text import Tokenizer
 from keras.callbacks import EarlyStopping
+from keras.optimizers import RMSprop
 from keras.models import Sequential, model_from_json
 import keras.utils as ku 
 
@@ -30,7 +31,7 @@ def dataset_preparation(data):
 	# basic cleanup
 	corpus = [nltk.tokenize.word_tokenize(sentence) for sentence in nltk.sent_tokenize(data)]
 	corpus =list(chain.from_iterable(corpus))
-
+	# print(corpus)
 	# tokenization	
 	tokenizer.fit_on_texts(corpus)
 	total_words = len(tokenizer.word_index) + 1
@@ -47,46 +48,115 @@ def dataset_preparation(data):
 	# pad sequences 
 	global max_sequence_len
 	max_sequence_len = max([len(x) for x in input_sequences])
-	input_sequences = np.array(pad_sequences(input_sequences, maxlen=max_sequence_len, padding='pre'))
 
-	# create predictors and label
-	predictors, label = input_sequences[:,:-1],input_sequences[:,-1]
-	label = ku.to_categorical(label, num_classes=total_words)
+	# We sample a new sequence every `step` characters
+	step = 3
 
-	return predictors, label, max_sequence_len, total_words
+	# This holds our extracted sequences
+	sentences = []
 
-def create_model(predictors, label, max_sequence_len, total_words):
-	
+	# This holds the targets (the follow-up characters)
+	next_chars = []
+
+	for i in range(0, len(data) - max_sequence_len, step):
+		sentences.append(data[i: i + max_sequence_len])
+		next_chars.append(data[i + max_sequence_len])
+	print('Number of sequences:', len(sentences))
+
+	# List of unique characters in the corpus
+	chars = sorted(list(set(data)))
+	print('Unique characters:', len(chars))
+	# Dictionary mapping unique characters to their index in `chars`
+	char_indices = dict((char, chars.index(char)) for char in chars)
+
+	# Next, one-shot encode the characters into binary arrays.
+	print('Vectorization...')
+	x = np.zeros((len(sentences), max_sequence_len, len(chars)), dtype=bool)
+	y = np.zeros((len(sentences), len(chars)), dtype=bool)
+	for i, sentence in enumerate(sentences):
+		for t, char in enumerate(sentence):
+			x[i, t, char_indices[char]] = 1
+		y[i, char_indices[next_chars[i]]] = 1
+	print('Done.')
+	# print(sentences[:50])
+
+	return sentences, x, y, max_sequence_len, total_words, chars, char_indices
+
+def sample(preds, temperature=1.0):
+    preds = np.asarray(preds).astype('float64')
+    preds = np.log(preds) / temperature
+    exp_preds = np.exp(preds)
+    preds = exp_preds / np.sum(exp_preds)
+    probas = np.random.multinomial(1, preds, 1)
+    return np.argmax(probas)
+
+def create_model(sentences, x, y, maxlen, total_words, chars, char_indices):
+	global data
+
+	# char_indices = dict((char, chars.index(char)) for char in chars)
+
 	model = Sequential()
-	model.add(Embedding(total_words, 10, input_length=max_sequence_len-1))
-	model.add(LSTM(150, return_sequences = True))
-	# model.add(Dropout(0.2))
-	model.add(LSTM(100))
-	model.add(Dense(total_words, activation='softmax'))
-
-	model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+	model.add(LSTM(128, input_shape=(maxlen, len(chars))))
+	model.add(Dense(len(chars), activation='softmax'))
+	optimizer = RMSprop(learning_rate=0.01)
+	model.compile(loss='categorical_crossentropy', optimizer=optimizer)
+	# model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 	earlystop = EarlyStopping(monitor='loss', min_delta=0, patience=5, verbose=0, mode='auto')
-	model.fit(predictors, label, epochs=100, verbose=1, callbacks=[earlystop])
+	# model.fit(predictors, label, epochs=100, verbose=1, callbacks=[earlystop])
+	for epoch in range(1, 100):
+		print('Epoch', epoch)
+		# Fit the model for 1 epoch on the available training data
+		model.fit(x, y,
+              batch_size=128,
+              epochs=1, 
+			  verbose=1,
+			  callbacks=[earlystop])
+
+		# Select a text seed at random
+		start_index = random.randint(0, len(data) - max_sequence_len - 1)
+		generated_text = data[start_index: start_index + max_sequence_len]
+		print('--- Generating with seed: "' + generated_text + '"')
+
+		for temperature in [0.2, 0.5, 1.0, 1.2]:
+			print('------ temperature:', temperature)
+			sys.stdout.write(generated_text)
+
+			# We generate 400 characters
+			for i in range(400):
+				sampled = np.zeros((1, max_sequence_len, len(chars)))
+				for t, char in enumerate(generated_text):
+					sampled[0, t, char_indices[char]] = 1.
+
+				preds = model.predict(sampled, verbose=0)[0]
+				next_index = sample(preds, temperature)
+				next_char = chars[next_index]
+
+				generated_text += next_char
+				generated_text = generated_text[1:]
+
+				sys.stdout.write(next_char)
+				sys.stdout.flush()
+			print()
 	print(model.summary())
 	return model 
 
-def generate_text(seed_text, next_words, max_sequence_len, model):
-	for _ in range(next_words):
-		token_list = tokenizer.texts_to_sequences([seed_text])[0]
-		token_list = pad_sequences([token_list], maxlen=max_sequence_len-1, padding='pre')
-		# predicted = model.predict_classes(token_list, verbose=0)
-		with redirect_stdout(open(os.devnull, 'w')):
-			predicted = (model.predict(token_list) > 0.5).astype("int32")		
-		output_word = ""
-		for word, index in tokenizer.word_index.items():
-			log.info("\n\n",word,index)
-			try: ispredicted = bool(index == predicted)
-			except ValueError: ispredicted = bool(index.any() == predicted)
-			if ispredicted:
-				output_word = word
-				break
-		seed_text += " " + output_word
-	return seed_text
+# def generate_text(seed_text, next_words, max_sequence_len, model):
+# 	for _ in range(next_words):
+# 		token_list = tokenizer.texts_to_sequences([seed_text])[0]
+# 		token_list = pad_sequences([token_list], maxlen=max_sequence_len-1, padding='pre')
+# 		# predicted = model.predict_classes(token_list, verbose=0)
+# 		with redirect_stdout(open(os.devnull, 'w')):
+# 			predicted = (model.predict(token_list) > 0.5).astype("int32")		
+# 		output_word = ""
+# 		for word, index in tokenizer.word_index.items():
+# 			log.info("\n\n",word,index)
+# 			try: ispredicted = bool(index == predicted)
+# 			except ValueError: ispredicted = bool(index.any() == predicted)
+# 			if ispredicted:
+# 				output_word = word
+# 				break
+# 		seed_text += " " + output_word
+# 	return seed_text
 
 def get_corpus_data():
 	path = os.getcwd()
@@ -94,7 +164,7 @@ def get_corpus_data():
 	data = ""
 	files = [files[1]] #delete this line, this is just for testing
 	for f in files:
-		data += open(f).read().decode(encoding='utf-8')
+		data += open(f).read()
 	return data
 
 def save_model(model,filepath="models"):
@@ -121,31 +191,33 @@ def load_model(filepath="models"):
 
 
 def main():
+	global data
 	path = os.getcwd()
 	filepath = "models"
 	jsonpath = path+'/'+filepath+'/model.json'
 	h5path = path+'/'+filepath+'/model.h5'
 
-	if not (os.path.isfile(h5path) and os.path.isfile(jsonpath)):
-		with console.status("[sky_blue1]Compiling corpus...", spinner="bouncingBar", spinner_style="pink1") as status:
-			data = get_corpus_data()
+	# if not (os.path.isfile(h5path) and os.path.isfile(jsonpath)):
+	with console.status("[sky_blue1]Compiling corpus...", spinner="bouncingBar", spinner_style="pink1") as status:
+		data = get_corpus_data()
 
-		with console.status("[sky_blue1]Preparing dataset...", spinner="bouncingBar", spinner_style="pink1") as status:
-			predictors, label, max_sequence_len, total_words = dataset_preparation(data)
+	with console.status("[sky_blue1]Preparing dataset...", spinner="bouncingBar", spinner_style="pink1") as status:
+		sentences, x, y, max_sequence_len, total_words, chars, char_indices = dataset_preparation(data)
 
-		console.print("[sky_blue1]Training model...\n[italic](this may take a while)")
-		model = create_model(predictors, label, max_sequence_len, total_words)
-		console.print(f"max_sequence_len = {max_sequence_len}")
+	# print(input_sequences[:50])
+	console.print("[sky_blue1]Training model...\n[italic](this may take a while)")
+	model = create_model(sentences, x, y, max_sequence_len, total_words, chars, char_indices)
+	console.print(f"max_sequence_len = {max_sequence_len}")
 
-		with console.status("[sky_blue1]Saving model...", spinner="bouncingBar", spinner_style="pink1") as status:
-			save_model(model)
-	else: #if the model files exist
-		with console.status("[sky_blue1]Loading model...", spinner="bouncingBar", spinner_style="pink1") as status:
-			model = load_model()
-			max_sequence_len = 29
+	with console.status("[sky_blue1]Saving model...", spinner="bouncingBar", spinner_style="pink1") as status:
+		save_model(model)
+	# else: #if the model files exist
+	# 	with console.status("[sky_blue1]Loading model...", spinner="bouncingBar", spinner_style="pink1") as status:
+	# 		model = load_model()
+	# 		max_sequence_len = 29
 
-	with console.status("[sky_blue1]Generating text...", spinner="bouncingBar", spinner_style="pink1") as status:
-		print(generate_text("the transgender", 3, max_sequence_len, model))
+	# with console.status("[sky_blue1]Generating text...", spinner="bouncingBar", spinner_style="pink1") as status:
+		# print(generate_text("the transgender", 3, max_sequence_len, model))
 
 if __name__ == '__main__':
 	main()

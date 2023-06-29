@@ -36,7 +36,7 @@ def main():
         username=secrets["username"],
     )
 
-    hatesubs = ["conspiracy", "conspiracy_commons", "conservative", "JordanPeterson", "benshapiro", "stevencrowder", "globeskepticism"]
+    hatesubs = ["conspiracy", "conspiracy_commons", "conservative", "JordanPeterson", "benshapiro", "stevencrowder", "globeskepticism", "DarkEnlightenment"]
     hotlimit = 100
     with Progress() as progress:
     # with alive_bar(len(hatesubs)*hotlimit, title="\033[38;5;14m[STATUS]\033[0m Reading reddit...".ljust(35)) as bar:
