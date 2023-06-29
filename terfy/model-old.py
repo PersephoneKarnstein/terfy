@@ -145,7 +145,7 @@ def generate_text(model, seed_text, max_sequence_len, chars, char_indices, temp=
 		for t, char in enumerate(seed_text):
 			sampled[0, t, char_indices[char]] = 1.
 
-		preds = model.predict(sampled, verbose=0)[0]
+		preds = model.predict(sampled, verbose=1)[0]
 		next_index = sample(preds, temp)
 		next_char = chars[next_index]
 
@@ -162,6 +162,7 @@ def get_corpus_data():
 	files = files[:4] #delete this line, this is just for testing
 	for f in files:
 		data += open(f).read()
+	data = data.replace("\n", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ")
 	return data
 
 def save_model(model,path,filepath="models"):
