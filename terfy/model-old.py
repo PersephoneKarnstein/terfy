@@ -2,6 +2,7 @@
 
 # from alive_progress import alive_bar
 from rich.console import Console
+from rich.table import Table
 
 from itertools import chain
 import numpy as np 
@@ -61,23 +62,23 @@ def dataset_preparation(data):
 	for i in range(0, len(data) - max_sequence_len, step):
 		sentences.append(data[i: i + max_sequence_len])
 		next_chars.append(data[i + max_sequence_len])
-	print('Number of sequences:', len(sentences))
+	# print('Number of sequences:', len(sentences))
 
 	# List of unique characters in the corpus
 	chars = sorted(list(set(data)))
-	print('Unique characters:', len(chars))
+	# print('Unique characters:', len(chars))
 	# Dictionary mapping unique characters to their index in `chars`
 	char_indices = dict((char, chars.index(char)) for char in chars)
 
 	# Next, one-shot encode the characters into binary arrays.
-	print('Vectorization...')
+	# print('Vectorization...')
 	x = np.zeros((len(sentences), max_sequence_len, len(chars)), dtype=bool)
 	y = np.zeros((len(sentences), len(chars)), dtype=bool)
 	for i, sentence in enumerate(sentences):
 		for t, char in enumerate(sentence):
 			x[i, t, char_indices[char]] = 1
 		y[i, char_indices[next_chars[i]]] = 1
-	print('Done.')
+	# print('Done.')
 	# print(sentences[:50])
 
 	return sentences, x, y, max_sequence_len, total_words, chars, char_indices
@@ -115,59 +116,53 @@ def create_model(sentences, x, y, maxlen, total_words, chars, char_indices):
 		# Select a text seed at random
 		start_index = random.randint(0, len(data) - max_sequence_len - 1)
 		generated_text = data[start_index: start_index + max_sequence_len]
-		print('--- Generating with seed: "' + generated_text + '"')
+		seed_text = generated_text.strip().replace("\n", " ")
+		# print('--- Generating with seed: "' + generated_text + '"')
+		
+		tabletitle = f"Epoch {epoch}\nSeed: {generated_text}"
+		table = Table(title=tabletitle, show_lines=True)
+		table.add_column("Temperature", justify="right", style="pink1", no_wrap=True)
+		table.add_column("Text", justify="left", style="plum2")
 
-		for temperature in [0.2, 0.5, 1.0, 1.2]:
-			print('------ temperature:', temperature)
-			sys.stdout.write(generated_text)
+		for temperature in [0.2, 0.5, 1.0]:
+			predictions = generate_text(model, seed_text, max_sequence_len, chars, char_indices, temp=temperature, seq_length=200)
+			table.add_row(str(temperature), predictions)
+		
+		console.print(table)
 
-			# We generate 400 characters
-			for i in range(400):
-				sampled = np.zeros((1, max_sequence_len, len(chars)))
-				for t, char in enumerate(generated_text):
-					sampled[0, t, char_indices[char]] = 1.
-
-				preds = model.predict(sampled, verbose=0)[0]
-				next_index = sample(preds, temperature)
-				next_char = chars[next_index]
-
-				generated_text += next_char
-				generated_text = generated_text[1:]
-
-				sys.stdout.write(next_char)
-				sys.stdout.flush()
-			print()
-	print(model.summary())
+		save_model(model,path)
+		print(model.summary())
 	return model 
 
-# def generate_text(seed_text, next_words, max_sequence_len, model):
-# 	for _ in range(next_words):
-# 		token_list = tokenizer.texts_to_sequences([seed_text])[0]
-# 		token_list = pad_sequences([token_list], maxlen=max_sequence_len-1, padding='pre')
-# 		# predicted = model.predict_classes(token_list, verbose=0)
-# 		with redirect_stdout(open(os.devnull, 'w')):
-# 			predicted = (model.predict(token_list) > 0.5).astype("int32")		
-# 		output_word = ""
-# 		for word, index in tokenizer.word_index.items():
-# 			log.info("\n\n",word,index)
-# 			try: ispredicted = bool(index == predicted)
-# 			except ValueError: ispredicted = bool(index.any() == predicted)
-# 			if ispredicted:
-# 				output_word = word
-# 				break
-# 		seed_text += " " + output_word
-# 	return seed_text
+def generate_text(model, seed_text, max_sequence_len, chars, char_indices, temp=0.5, seq_length=400):
+	written = seed_text
+
+	# We generate seq_len characters
+	for i in range(seq_length):
+		sampled = np.zeros((1, max_sequence_len, len(chars)))
+		for t, char in enumerate(seed_text):
+			sampled[0, t, char_indices[char]] = 1.
+
+		preds = model.predict(sampled, verbose=0)[0]
+		next_index = sample(preds, temp)
+		next_char = chars[next_index]
+
+		seed_text += next_char
+		seed_text = seed_text[1:]
+
+		written += next_char
+	return written
 
 def get_corpus_data():
 	path = os.getcwd()
 	files = glob.glob(path + '/training-texts/*.txt')
 	data = ""
-	files = [files[1]] #delete this line, this is just for testing
+	# files = [files[1]] #delete this line, this is just for testing
 	for f in files:
 		data += open(f).read()
 	return data
 
-def save_model(model,filepath="models"):
+def save_model(model,path,filepath="models"):
 	# serialize model to JSON
 	model_json = model.to_json()
 	with open(path+'/'+filepath+'/model.json', "w") as json_file:
@@ -210,7 +205,7 @@ def main():
 	console.print(f"max_sequence_len = {max_sequence_len}")
 
 	with console.status("[sky_blue1]Saving model...", spinner="bouncingBar", spinner_style="pink1") as status:
-		save_model(model)
+		save_model(model,path)
 	# else: #if the model files exist
 	# 	with console.status("[sky_blue1]Loading model...", spinner="bouncingBar", spinner_style="pink1") as status:
 	# 		model = load_model()
