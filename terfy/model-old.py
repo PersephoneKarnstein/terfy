@@ -10,7 +10,7 @@ import glob,os,nltk,sys,logging,random
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '7'
 
-from keras_preprocessing.sequence import pad_sequences
+# from keras_preprocessing.sequence import pad_sequences
 from keras.layers import Embedding, LSTM, Dense, Dropout
 from keras_preprocessing.text import Tokenizer
 from keras.callbacks import EarlyStopping
