@@ -1,4 +1,4 @@
-import os, json,praw,warnings
+import os, json,praw,warnings,re
 # from alive_progress import alive_bar
 from rich.progress import Progress
 from rich.console import Console
@@ -36,8 +36,11 @@ def main():
         username=secrets["username"],
     )
 
+    trans = re.compile(r'(trans ((man)|(woman)|(people)|(ideology)|(men)|(women)|(child)|(children)))|(transgender)|(transsexual)|(tranny)|(transvestite)')
+
     hatesubs = ["conspiracy", "conspiracy_commons", "conservative", "JordanPeterson", "benshapiro", "stevencrowder", "globeskepticism", "DarkEnlightenment"]
-    hotlimit = 100
+    hotlimit = 1000
+    min_count = 1
     with Progress() as progress:
     # with alive_bar(len(hatesubs)*hotlimit, title="\033[38;5;14m[STATUS]\033[0m Reading reddit...".ljust(35)) as bar:
         with open(path + "/training-texts/reddit.txt", "w+") as g:
@@ -49,11 +52,15 @@ def main():
                 # print(f"\033[1;38;5;15m[INFO]\033[0m Now scraping r/{subredditname}...")
                 subreddit = reddit.subreddit(subredditname)
                 for submission in subreddit.hot(limit=hotlimit):
-                    g.write(submission.title)
-                    g.write(submission.selftext)
-                    submission.comments.replace_more(limit=None)
-                    for comment in submission.comments.list():
-                        g.write(comment.body if len(comment.body)>30 else "")
+                    searchme = " ".join([submission.title,submission.selftext])
+                    mentioned_trans = len(re.findall(trans, searchme))
+                    if mentioned_trans > min_count:
+                        #do the same filtering for trans content as with infowars or it's too big
+                        g.write(submission.title)
+                        g.write(submission.selftext)
+                        submission.comments.replace_more(limit=None)
+                        for comment in submission.comments.list():
+                            g.write(comment.body if len(comment.body)>30 else "")
                     progress.update(globals()[taskname], advance=1)
 
 if __name__ == '__main__':
