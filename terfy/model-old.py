@@ -104,17 +104,17 @@ def create_model(sentences, x, y, maxlen, total_words, chars, char_indices):
 	# model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 	earlystop = EarlyStopping(monitor='loss', min_delta=0, patience=5, verbose=0, mode='auto')
 	# model.fit(predictors, label, epochs=100, verbose=1, callbacks=[earlystop])
-	for epoch in range(1, 100):
+	for epoch in range(1, 10):
 		print('Epoch', epoch)
 		# Fit the model for 1 epoch on the available training data
 		model.fit(x, y,
-			batch_size=256,
-			epochs=1, 
+			batch_size=128,
+			epochs=10, 
 			verbose=1,
 			callbacks=[earlystop])
 
 		#check how it's doing
-		if epoch%10==0:
+		if epoch%1==0:
 			# Select a text seed at random
 			start_index = random.randint(0, len(data) - max_sequence_len - 1)
 			generated_text = data[start_index: start_index + max_sequence_len]
@@ -159,7 +159,7 @@ def get_corpus_data():
 	path = os.getcwd()
 	files = glob.glob(path + '/training-texts/*.txt')
 	data = ""
-	files = files[:4] #delete this line, this is just for testing
+	# files = files[:4] #delete this line, this is just for testing
 	for f in files:
 		data += open(f).read()
 	data = data.replace("\n", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ")
