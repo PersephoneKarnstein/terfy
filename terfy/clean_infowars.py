@@ -27,7 +27,7 @@ log.setLevel(logging.INFO)
 
 def clean_text():
 
-    min_count = 20 #they're fairly long so set it so he has to talk about it a lot for it to count
+    min_count = 10 #they're fairly long so set it so he has to talk about it a lot for it to count
     # if min_count is set to 10 you get a 10.6 MB file; at 20 you get a 2.5 MB file
     console.print(Panel("Transcribing Infowars".rjust(int(os.get_terminal_size().columns/2))))
     model = PunctuationModel()
@@ -38,7 +38,7 @@ def clean_text():
     if os.path.exists(path):
         os.remove(path)
     timestamp = re.compile(r'^\s*\[\d{1,2}(:\d{2})?:\d{2}\.\d{3} --> \d{1,2}(:\d{2})?:\d{2}\.\d{3}\]\s+')
-    trans = re.compile(r'(trans ((man)|(woman)|(people)|(ideology)|(men)|(women)|(child)|(children)))|(transgender)|(transsexual)|(tranny)|(transvestite)')
+    trans = re.compile(r'(trans ((man)|(woman)|(people)|(ideology)|(men)|(women)|(child)|(children)))|(transgender)|(transsexual)|(tranny)|(transvestite)|(penis)|([mM]ichael [oO]bama)')
     i,j=0,0
     try:
         with Progress() as progress:
@@ -80,5 +80,32 @@ def clean_text():
         return
     console.print("[pink1]Transcription Complete.")
 
+def decimate_by_sentence(inpath="training-texts/alexjones.txt", outpath="training-texts/alexjones-decimated.txt"):
+    import nltk.data
+
+    console.print("[pink1]Decimating...")
+    tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
+    fp = open(inpath)
+    data = fp.read()
+    sentences = tokenizer.tokenize(data)
+
+    decimated = []
+    surrounding = 5
+
+    trans = re.compile(r'(trans ((man)|(woman)|(people)|(ideology)|(men)|(women)|(child)|(children)))|(transgender)|(transsexual)|(tranny)|(transvestite)|(penis)|([mM]ichael [oO]bama)')
+
+
+    for i, sentence in enumerate(sentences):
+        if trans.search(sentence):
+            for j in range(i-surrounding, i+surrounding, 1):
+                try: decimated.append(sentences[j])
+                except IndexError: pass
+                
+    with open(outpath, 'w') as f:
+        f.write(" ".join(decimated))
+    
+    console.print("[pink1]Done.")
+
 if __name__ == '__main__':
     clean_text()
+    decimate_by_sentence()
