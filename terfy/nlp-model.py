@@ -1,7 +1,13 @@
+#https://stackabuse.com/gpt-style-text-generation-in-python-with-tensorflowkeras/
+
 import os, glob, keras_nlp, nltk.data, random
 import tensorflow as tf
 from tensorflow import keras
+from keras.models import model_from_json
 import numpy as np
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+warnings.filterwarnings("ignore", category=UserWarning)
 
 def get_corpus_data():
 	path = os.getcwd()
@@ -33,9 +39,9 @@ def custom_standardization(input_string):
     sentence = tf.strings.regex_replace(sentence, "\n", " ")
     return sentence
 
-maxlen = 50
+# maxlen = 50
 # You can also set calculate the longest sentence in the data - 25 in this case
-# maxlen = len(max(text_list).split(' ')) 
+maxlen = len(max(text_list)) 
 
 vectorize_layer = TextVectorization(
     standardize = custom_standardization,
@@ -48,7 +54,7 @@ vocab = vectorize_layer.get_vocabulary()
 vocab_size = len(vocab)
 
 index_lookup = dict(zip(range(len(vocab)), vocab))    
-index_lookup[5]
+# index_lookup[5]
 
 batch_size = 64
 
@@ -91,9 +97,7 @@ def create_model():
         x = keras_nlp.layers.TransformerDecoder(intermediate_dim=embed_dim*2, num_heads=num_heads,                                                             dropout=0.5)(x)
     do = keras.layers.Dropout(0.4)(x)
     outputs = keras.layers.Dense(vocab_size, activation='softmax')(do)
-    
     model = keras.Model(inputs=inputs, outputs=outputs)
-    
     model.compile(
         optimizer="adam", 
         loss='sparse_categorical_crossentropy',
@@ -154,5 +158,30 @@ def generate_text(prompt, response_length=20):
         sampled_token = index_lookup[sampled_token]
         decoded_sample += " " + sampled_token
     return decoded_sample
+
+def save_model(model,path,filepath="models"):
+	# serialize model to JSON
+	model_json = model.to_json()
+	with open(path+'/'+filepath+'/model.json', "w") as json_file:
+		json_file.write(model_json)
+	# serialize weights to HDF5
+	model.save_weights(path+'/'+filepath+"/model.h5")
+	# print("Saved model to disk")
+
+def load_model(filepath="models"):
+	path = os.getcwd()
+	# with redirect_stdout(open(os.devnull, 'w')):
+	json_file = open(path+'/'+filepath+'/model.json', 'r')
+	loaded_model_json = json_file.read()
+	json_file.close()
+	loaded_model = model_from_json(loaded_model_json)
+	# load weights into new model
+	loaded_model.load_weights(path+'/'+filepath+"/model.h5")
+	loaded_model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+	print("Loaded model from disk")
+	return loaded_model
+
+path = os.getcwd()
+save_model(model,path)
 
 generate_text('the truth ultimately is')
