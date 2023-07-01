@@ -34,7 +34,7 @@ def clean_text():
 
     path = os.getcwd()
     files = glob.glob(path + '/infowars/*.txt')
-    path += "/training-texts/alexjones.txt"
+    path += "/pdf-texts/alexjones.txt"
     if os.path.exists(path):
         os.remove(path)
     timestamp = re.compile(r'^\s*\[\d{1,2}(:\d{2})?:\d{2}\.\d{3} --> \d{1,2}(:\d{2})?:\d{2}\.\d{3}\]\s+')
@@ -80,8 +80,9 @@ def clean_text():
         return
     console.print("[pink1]Transcription Complete.")
 
-def decimate_by_sentence(inpath="training-texts/alexjones.txt", outpath="training-texts/alexjones-decimated.txt"):
+def decimate_by_sentence(inpath="pdf-texts/alexjones.txt", outpath="training-texts/alexjones-decimated.txt"):
     import nltk.data
+    import re
 
     console.print("[pink1]Decimating...")
     tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
@@ -90,17 +91,20 @@ def decimate_by_sentence(inpath="training-texts/alexjones.txt", outpath="trainin
     sentences = tokenizer.tokenize(data)
 
     decimated = []
+    already_added = []
     surrounding = 5
 
     trans = re.compile(r'(trans ((man)|(woman)|(people)|(ideology)|(men)|(women)|(child)|(children)))|(transgender)|(transsexual)|(tranny)|(transvestite)|(penis)|([mM]ichael [oO]bama)')
 
-
     for i, sentence in enumerate(sentences):
         if trans.search(sentence):
             for j in range(i-surrounding, i+surrounding, 1):
-                try: decimated.append(sentences[j])
-                except IndexError: pass
-                
+                if j not in already_added:
+                    try: 
+                        decimated.append(sentences[j])
+                        already_added.append(j)
+                    except IndexError: pass
+                    
     with open(outpath, 'w') as f:
         f.write(" ".join(decimated))
     
