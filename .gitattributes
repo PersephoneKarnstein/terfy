@@ -1,1 +1,5 @@
 models/training_checkpoints/ckpy_*.data* filter=lfs diff=lfs merge=lfs -text
+models/model.json filter=lfs diff=lfs merge=lfs -text
+models/training_checkpoints filter=lfs diff=lfs merge=lfs -text
+models/1epoch.pth filter=lfs diff=lfs merge=lfs -text
+models/model.h5 filter=lfs diff=lfs merge=lfs -text
