@@ -1,10 +1,12 @@
 #https://stackabuse.com/gpt-style-text-generation-in-python-with-tensorflowkeras/
 
-import os, glob, keras_nlp, nltk.data, random
+import os, glob, keras_nlp, nltk.data, random,warnings
 import tensorflow as tf
 from tensorflow import keras
 from keras.models import model_from_json
 import numpy as np
+
+nltk.download('punkt', quiet=True)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -94,7 +96,7 @@ def create_model():
     inputs = keras.layers.Input(shape=(maxlen,), dtype=tf.int32)
     x = keras_nlp.layers.TokenAndPositionEmbedding(vocab_size, maxlen, embed_dim)(inputs)
     for i in range(4):
-        x = keras_nlp.layers.TransformerDecoder(intermediate_dim=embed_dim*2, num_heads=num_heads,                                                             dropout=0.5)(x)
+        x = keras_nlp.layers.TransformerDecoder(intermediate_dim=embed_dim*2, num_heads=num_heads, dropout=0.5)(x)
     do = keras.layers.Dropout(0.4)(x)
     outputs = keras.layers.Dense(vocab_size, activation='softmax')(do)
     model = keras.Model(inputs=inputs, outputs=outputs)
@@ -153,7 +155,6 @@ def generate_text(prompt, response_length=20):
         tokenized_prompt = vectorize_layer([decoded_sample])[:, :-1]
         predictions = model.predict([tokenized_prompt], verbose=0)
         sample_index = len(decoded_sample.strip().split())-1
-
         sampled_token = sample_token(predictions[0][sample_index])
         sampled_token = index_lookup[sampled_token]
         decoded_sample += " " + sampled_token
@@ -169,17 +170,20 @@ def save_model(model,path,filepath="models"):
 	# print("Saved model to disk")
 
 def load_model(filepath="models"):
-	path = os.getcwd()
-	# with redirect_stdout(open(os.devnull, 'w')):
-	json_file = open(path+'/'+filepath+'/model.json', 'r')
-	loaded_model_json = json_file.read()
-	json_file.close()
-	loaded_model = model_from_json(loaded_model_json)
-	# load weights into new model
-	loaded_model.load_weights(path+'/'+filepath+"/model.h5")
-	loaded_model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-	print("Loaded model from disk")
-	return loaded_model
+    path = os.getcwd()
+    # with redirect_stdout(open(os.devnull, 'w')):
+    json_file = open(path+'/'+filepath+'/model.json', 'r')
+    loaded_model_json = json_file.read()
+    json_file.close()
+    loaded_model = model_from_json(loaded_model_json)
+    # load weights into new model
+    loaded_model.load_weights(path+'/'+filepath+"/model.h5")
+    loaded_model.compile(
+        optimizer="adam", 
+        loss='sparse_categorical_crossentropy',
+        metrics=[keras_nlp.metrics.Perplexity(), 'accuracy'])
+    print("Loaded model from disk")
+    return loaded_model
 
 path = os.getcwd()
 save_model(model,path)
