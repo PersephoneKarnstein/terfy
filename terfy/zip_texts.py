@@ -1,4 +1,4 @@
-import os, glob, nltk.data, zipfile, random
+import os, glob, nltk.data, tarfile, random
 
 nltk.download('punkt', quiet=True)
 
@@ -16,28 +16,22 @@ texts = get_corpus_data()
 
 tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 text_list = tokenizer.tokenize(texts)
-text_list = list(filter(None, text_list))
+# text_list = list(filter(None, text_list))
+text_list = [a for a in text_list if len(a)>3]
 
 print(f'Length of text: {len(texts)} characters; {len(text_list)} sentences.')
 
 random.shuffle(text_list)
 
-length = len(text_list)
-text_train = text_list[:int(0.7*length)]
-text_test = text_list[int(0.7*length):int(0.85*length)]
-text_valid = text_list[int(0.85*length):]
-
-with open("train.txt", 'w') as f:
-    f.write("\n\n".join(text_train))
-
-with open("test.txt", 'w') as f:
-    f.write("\n\n".join(text_test))
-    
 with open("valid.txt", 'w') as f:
-    f.write("\n\n".join(text_valid))
+    f.write("\n\n".join(text_list))
 
-with zipfile.ZipFile("texts.zip", "w") as f:
-	for a in ["train.txt", "test.txt", "valid.txt"]:
-		f.write(a)
-		os.remove(a)
+with tarfile.open("texts.tar.gz", "w:gz") as tarhandle:
+      for a in ["valid.txt"]:
+            tarhandle.add(a)
+            os.remove(a)
+# with zipfile.ZipFile("texts.zip", "w") as f:
+# 	for a in ["train.txt", "test.txt", "valid.txt"]:
+# 		f.write(a)
+# 		os.remove(a)
     
