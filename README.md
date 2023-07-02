@@ -2,7 +2,7 @@
 
 The world is getting worse and transphobes have no imaginiation so I figured a computer could probably do just as well thinking up talking points
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/googlecolab/colabtools/blob/master/notebooks/colab-github-demo.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/PersephoneKarnstein/terfy/blob/master/Terfy.ipynb)
 
 ![](readme-content/Untitled-1.png)
 ![](readme-content/Untitled-2.png)
