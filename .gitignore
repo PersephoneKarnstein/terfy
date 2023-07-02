@@ -3,6 +3,7 @@ secrets.json
 .DS_Store
 terfy/.DS_Store
 tmp/
+models/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
