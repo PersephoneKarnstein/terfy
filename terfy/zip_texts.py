@@ -25,9 +25,16 @@ random.shuffle(text_list)
 
 with open("valid.txt", 'w') as f:
     f.write("\n\n".join(text_list))
+    
+with open("train.txt", 'w') as f:
+    with open("pdf-texts/alexjones.txt", 'r') as g:
+        data = g.read()
+        tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
+        sentences = tokenizer.tokenize(data)
+        f.write("\n\n".join(sentences))
 
 with tarfile.open("texts.tar.gz", "w:gz") as tarhandle:
-      for a in ["valid.txt"]:
+      for a in ["valid.txt","train.txt"]:
             tarhandle.add(a)
             os.remove(a)
 # with zipfile.ZipFile("texts.zip", "w") as f:
