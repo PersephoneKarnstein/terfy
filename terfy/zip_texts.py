@@ -27,9 +27,13 @@ with open("valid.txt", 'w') as f:
     f.write("\n\n".join(text_list))
     
 with open("train.txt", 'w') as f:
+    tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
     with open("pdf-texts/alexjones.txt", 'r') as g:
         data = g.read()
-        tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
+        sentences = tokenizer.tokenize(data)
+        f.write("\n\n".join(sentences))
+    with open("pdf-texts/reddit-full.txt", 'r') as g:
+        data = g.read()
         sentences = tokenizer.tokenize(data)
         f.write("\n\n".join(sentences))
 
