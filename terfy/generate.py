@@ -13,7 +13,7 @@ def main():
 
     path = os.getcwd()
     console.print(Panel(Padding("[bold]"+"☙ GENERATING CORPUS ❧".rjust(int(os.get_terminal_size().columns/2)),1),border_style="pink1"))
-    consolr.print("\n\n")
+    console.print("\n\n")
 
     # GENERATE THE INFOWARS FILE
     filename = path + "/training-texts/alexjones.txt"
